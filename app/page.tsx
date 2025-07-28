@@ -10,7 +10,7 @@ import { Loader2, GitPullRequest} from "lucide-react";
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList, CommandEmpty } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
+const API_BASE_URL = "https://berepo-1.onrender.com" || "http://localhost:5001";
 
 interface Member {
   uuid: string;
