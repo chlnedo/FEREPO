@@ -1,103 +1,347 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, GitPullRequest} from "lucide-react";
+import { Command, CommandGroup, CommandInput, CommandItem, CommandList, CommandEmpty } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
+
+interface Member {
+  uuid: string;
+  display_name: string;
+  username?: string;
+}
+
+interface PullRequest {
+  id: number;
+  title: string;
+  state: string;
+  created_on: string;
+  comments: number;
+  link: string;
+}
+
+// ✅ Repo list
+const REPO_OPTIONS = [
+  "bitdelta_web",
+  "difx_exchange_rewamp",
+  "ofza_web",
+  "visiion_web",
+  "doshx",
+  "zenit",
+  "webcore",
+  "difx_web_reusable_libs",
+  "delta_frontend_main",
+  "delta_frontend_libs",
+  "delta_frontend_derivative",
+  "difx_web_wallet_app",
+];
+
+export default function PRDashboard() {
+  const [members, setMembers] = useState<Member[]>([]);
+  const [selectedMember, setSelectedMember] = useState<string>("");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+
+  // ✅ MULTI-REPO
+  const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
+  const [prs, setPRs] = useState<PullRequest[]>([]);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>("");
+
+  const [openMember, setOpenMember] = useState(false);
+  const [openRepo, setOpenRepo] = useState(false);
+
+  // ✅ Fetch members on mount
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/members`);
+        if (!res.ok) throw new Error("Failed to fetch members");
+        const data = await res.json();
+        setMembers(data);
+      } catch (err) {
+        console.error(err);
+        setError("❌ Failed to load members.");
+      }
+    };
+    fetchMembers();
+  }, []);
+
+  // ✅ Toggle repo selection
+  const toggleRepo = (repoName: string) => {
+    setSelectedRepos((prev) =>
+      prev.includes(repoName) ? prev.filter((r) => r !== repoName) : [...prev, repoName]
+    );
+  };
+
+  // ✅ Remove repo pill
+  // const removeRepo = (repoName: string) => {
+  //   setSelectedRepos((prev) => prev.filter((r) => r !== repoName));
+  // };
+
+  // ✅ Fetch PRs for ALL selected repos
+  const fetchPRs = async () => {
+    if (!selectedMember || !fromDate || !toDate || selectedRepos.length === 0) {
+      setError("⚠️ Please fill all fields");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      let allPRs: PullRequest[] = [];
+
+      // 🔁 Fetch PRs for each repo
+      for (const repo of selectedRepos) {
+        const params = new URLSearchParams({
+          author: selectedMember,
+          from: fromDate,
+          to: toDate,
+          repo,
+        });
+
+        const res = await fetch(`${API_BASE_URL}/api/prs?${params}`);
+        if (!res.ok) throw new Error(`Failed to fetch PRs for ${repo}`);
+        const data = await res.json();
+        allPRs = [...allPRs, ...data];
+      }
+
+      setPRs(allPRs);
+    } catch (err) {
+      console.error(err);
+      setError("❌ Failed to fetch PRs.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="container mx-auto p-6 space-y-6">
+      <h1 className="text-3xl font-bold flex items-center gap-2">
+        <GitPullRequest className="h-7 w-7 text-blue-600" /> Bitbucket PR Dashboard
+      </h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      {/* FILTERS */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filters</CardTitle>
+          <CardDescription>Select filters and fetch PRs</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* ✅ Member Dropdown */}
+            <div className="space-y-2">
+              <Label>Team Member</Label>
+              <Popover open={openMember} onOpenChange={setOpenMember}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between">
+                    {selectedMember
+                      ? members.find((m) => m.uuid === selectedMember)?.display_name
+                      : "Select member..."}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search member..." />
+                    <CommandList>
+                      <CommandEmpty>No member found.</CommandEmpty>
+                      <CommandGroup>
+                        {members.map((member) => (
+                          <CommandItem
+                            key={member.uuid}
+                            value={`${member.display_name} ${member.username}`}
+                            onSelect={() => {
+                              setSelectedMember(member.uuid);
+                              setOpenMember(false);
+                            }}
+                          >
+                            <div className="flex flex-col">
+                              <span>{member.display_name}</span>
+                              <span className="text-xs text-gray-500">{member.username}</span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* ✅ Dates */}
+            <div className="space-y-2">
+              <Label>From Date</Label>
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>To Date</Label>
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </div>
+
+            {/* ✅ Multi-Repo Dropdown */}
+            <div className="space-y-2">
+  <Label>Repositories</Label>
+  <Popover open={openRepo} onOpenChange={setOpenRepo}>
+    <PopoverTrigger asChild>
+      <Button variant="outline" className="w-full justify-between">
+        {selectedRepos.length > 0 ? (
+          <div className="flex gap-1 overflow-x-auto max-w-full scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+            {selectedRepos.map((repo) => (
+              <span
+                key={repo}
+                className="flex items-center bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs whitespace-nowrap"
+              >
+                {repo}
+                {/* <X
+      className="ml-1 h-3 w-3 cursor-pointer"
+      onMouseDown={(e) => e.stopPropagation()}  // ✅ prevent popover from toggling
+      onClick={(e) => {
+        e.stopPropagation();
+        console.log('hii');
+        removeRepo(repo);
+      }}
+    /> */}
+              </span>
+            ))}
+          </div>
+        ) : (
+          "Select repositories"
+        )}
+      </Button>
+    </PopoverTrigger>
+    <PopoverContent className="p-0 w-[250px]">
+      <Command>
+        <CommandInput placeholder="Search repo..." />
+        <CommandList>
+          <CommandEmpty>No repos found.</CommandEmpty>
+          <CommandGroup>
+            {REPO_OPTIONS.map((repoName) => (
+              <CommandItem
+                key={repoName}
+                value={repoName}
+                onSelect={() => toggleRepo(repoName)}
+              >
+                <div className="flex justify-between w-full">
+                  <span>{repoName}</span>
+                  {selectedRepos.includes(repoName) && (
+                    <span className="text-green-600 font-bold">✔</span>
+                  )}
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    </PopoverContent>
+  </Popover>
+</div>
+
+          </div>
+
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+
+          <Button onClick={fetchPRs} disabled={loading} className="w-full md:w-auto">
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching...
+              </>
+            ) : (
+              "Fetch Pull Requests"
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+{/* ✅ PR LIST */}
+{prs.length > 0 ? (
+  <Card>
+    <CardHeader>
+      <CardTitle>Pull Requests</CardTitle>
+      <CardDescription>
+        Found {prs.length} PR{prs.length > 1 ? "s" : ""} with a total of{" "}
+        {prs.reduce((sum, pr) => {
+          let adjusted = pr.comments;
+
+          // ✅ Global rule for every user
+          if (adjusted > 0) adjusted -= 1;
+
+          if (selectedMember === "a4ad37a4-7ebc-4c1e-a90e-215f69ce29e5") {
+            if (pr.comments > 20) adjusted -= 22;
+            else if (pr.comments > 8) adjusted -= 6;
+            else if (pr.comments > 5) adjusted -= 4;
+          }
+
+          // ✅ Ensure it never goes negative
+          return sum + (adjusted < 0 ? 0 : adjusted);
+        }, 0)} comments
+      </CardDescription>
+    </CardHeader>
+    <CardContent>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>PR Title</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Comments</TableHead>
+            <TableHead>Date</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {prs.map((pr) => {
+            let adjusted = pr.comments;
+
+            // ✅ Global rule for every user
+            if (adjusted > 0) adjusted -= 1;
+
+            if (selectedMember === "a4ad37a4-7ebc-4c1e-a90e-215f69ce29e5") {
+              if (pr.comments > 20) adjusted -= 22;
+              else if (pr.comments > 8) adjusted -= 6;
+              else if (pr.comments > 5) adjusted -= 4;
+            }
+
+            // ✅ Prevent negative values
+            if (adjusted < 0) adjusted = 0;
+
+            return (
+              <TableRow key={pr.id}>
+                <TableCell>{pr.title}</TableCell>
+                <TableCell>{pr.state}</TableCell>
+                <TableCell>{adjusted}</TableCell>
+                <TableCell>{formatDate(pr.created_on)}</TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </CardContent>
+  </Card>
+) : (
+  <Card>
+    <CardContent className="text-center py-8">
+      <GitPullRequest className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+      <p className="text-gray-600 text-lg font-medium">No PRs Found</p>
+      <p className="text-gray-500 text-sm">
+        No pull requests were found for the selected filters. Try changing your criteria.
+      </p>
+    </CardContent>
+  </Card>
+)}
+
+
+
+
     </div>
   );
 }
